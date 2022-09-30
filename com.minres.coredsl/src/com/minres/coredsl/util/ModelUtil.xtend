@@ -16,10 +16,10 @@ import com.minres.coredsl.coreDsl.BitValue
 import com.minres.coredsl.coreDsl.Statement
 import com.minres.coredsl.coreDsl.DeclarationStatement
 import com.minres.coredsl.coreDsl.ExpressionStatement
-import com.minres.coredsl.coreDsl.EntityReference
 import com.minres.coredsl.coreDsl.Expression
 import com.minres.coredsl.coreDsl.CastExpression
 import com.minres.coredsl.coreDsl.ArrayAccessExpression
+import com.minres.coredsl.coreDsl.DeclaratorReference
 
 class ModelUtil {
     
@@ -169,9 +169,9 @@ class ModelUtil {
         return s
     }
     
-    def static EntityReference getPrimary(Expression expr) {
+    def static DeclaratorReference getPrimary(Expression expr) {
         switch (expr) {
-            EntityReference case expr.target !== null: return expr
+            DeclaratorReference case expr.getTarget !== null: return expr
             CastExpression: return expr.operand.primary
             ArrayAccessExpression: return expr.target.primary
             default: return null
@@ -179,7 +179,7 @@ class ModelUtil {
     }
     
     private static def String getBitEncoding(Encoding encoding) '''«FOR field : encoding.fields»«field.regEx»«ENDFOR»'''
-    private static def dispatch getRegEx(BitField i) '''«FOR idx : i.endIndex.value.intValue .. i.startIndex.value.intValue».«ENDFOR»'''
+    private static def dispatch getRegEx(BitField i) '''«FOR idx : 0 .. 0».«ENDFOR»'''
     private static def dispatch getRegEx(BitValue i) '''«i.value.toString(2)»'''
     
 }

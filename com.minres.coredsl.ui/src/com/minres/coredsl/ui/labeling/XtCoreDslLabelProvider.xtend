@@ -49,7 +49,7 @@ class XtCoreDslLabelProvider extends CoreDslLabelProvider {
     }
 
     def text(FunctionDefinition ele) {
-        ele.name
+        ele.declarator?.name
     }
 
     def text(Encoding ele) {
@@ -62,9 +62,9 @@ class XtCoreDslLabelProvider extends CoreDslLabelProvider {
 
     private def dispatch String getToText(BitField field) {
         if (field.startIndex !== null && field.endIndex !== null)
-            field.name + "[" + field.startIndex.value.intValue + ":" + field.endIndex.value.intValue + "]"
+            field.operand.target?.name + "[" + field.startIndex.toString() + ":" + field.endIndex.toString() + "]"
         else
-            field.name
+            field.operand.target?.name
     }
 
     private def dispatch String getToText(BitValue value) {

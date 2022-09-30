@@ -2,7 +2,7 @@ package com.minres.coredsl.analysis
 
 import com.minres.coredsl.coreDsl.CoreDslPackage
 import com.minres.coredsl.coreDsl.Declarator
-import com.minres.coredsl.coreDsl.EntityReference
+import com.minres.coredsl.coreDsl.DeclaratorReference
 import com.minres.coredsl.coreDsl.Expression
 import com.minres.coredsl.coreDsl.InfixExpression
 import com.minres.coredsl.coreDsl.IntegerConstant
@@ -15,12 +15,13 @@ import static extension com.minres.coredsl.util.ModelExtensions.*
 
 class CoreDslConstantExpressionEvaluator {
 
-	def static dispatch ConstantValue evaluate(ElaborationContext ctx, EntityReference expression) {
-		val declarator = expression.target.castOrNull(Declarator);
+	def static dispatch ConstantValue evaluate(ElaborationContext ctx, DeclaratorReference expression) {
+		val declarator = expression.getTarget.castOrNull(Declarator);
 
 		if(declarator === null || !ctx.actx.isIsaParameter(declarator)) {
 			ctx.acceptError("Identifiers in constant expressions may only refer to ISA parameters", expression,
-				CoreDslPackage.Literals.ENTITY_REFERENCE__TARGET, -1, IssueCodes.InvalidConstantExpressionIdentifier);
+				CoreDslPackage.Literals.DECLARATOR_REFERENCE__TARGET, -1,
+				IssueCodes.InvalidConstantExpressionIdentifier);
 			return ConstantValue.invalid;
 		}
 
@@ -83,8 +84,8 @@ class CoreDslConstantExpressionEvaluator {
 						TypeSpecifier: {
 							return getTypeSize(ctx, arg, inBytes);
 						}
-						EntityReference: {
-							val declarator = arg.target.castOrNull(Declarator);
+						DeclaratorReference: {
+							val declarator = arg.getTarget.castOrNull(Declarator);
 							if(declarator !== null) {
 								return getTypeSize(ctx, declarator.type, inBytes);
 							} else {

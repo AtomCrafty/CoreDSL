@@ -9,7 +9,6 @@ import com.minres.coredsl.coreDsl.Declaration
 import com.minres.coredsl.coreDsl.DeclarationStatement
 import com.minres.coredsl.coreDsl.Declarator
 import com.minres.coredsl.coreDsl.DescriptionContent
-import com.minres.coredsl.coreDsl.EntityReference
 import com.minres.coredsl.coreDsl.Expression
 import com.minres.coredsl.coreDsl.ExpressionStatement
 import com.minres.coredsl.coreDsl.ISA
@@ -25,6 +24,7 @@ import java.util.HashSet
 import org.eclipse.xtext.validation.ValidationMessageAcceptor
 
 import static extension com.minres.coredsl.util.ModelExtensions.*
+import com.minres.coredsl.coreDsl.DeclaratorReference
 
 class CoreDslAnalyzer {
 
@@ -77,7 +77,7 @@ class CoreDslAnalyzer {
 						if(!declaredNames.add(decl.name)) {
 							ctx.acceptError(
 								'An ISA state element with the name ' + decl.name + ' has already been declared', decl,
-								CoreDslPackage.Literals.NAMED_ENTITY__NAME, -1, IssueCodes.DuplicateIsaStateElement);
+								CoreDslPackage.Literals.DECLARATOR__NAME, -1, IssueCodes.DuplicateIsaStateElement);
 						}
 					}
 				}
@@ -100,8 +100,8 @@ class CoreDslAnalyzer {
 						return;
 					}
 
-					val entityReference = assignment.target.castOrNull(EntityReference);
-					val declarator = entityReference?.target.castOrNull(Declarator);
+					val entityReference = assignment.target.castOrNull(DeclaratorReference);
+					val declarator = entityReference?.getTarget.castOrNull(Declarator);
 
 					if(declarator === null || !ctx.isIsaParameter(declarator) || declarator.isConst) {
 						ctx.acceptError('ISA level assignment must assign to a non-constant ISA parameter',
@@ -200,7 +200,7 @@ class CoreDslAnalyzer {
 	def static analyzeDeclarator(AnalysisContext ctx, Declarator declarator, boolean isIsaStateElement) {
 		if(declarator.isConst && declarator.initializer === null) {
 			ctx.acceptError("An identifier declared as const must be initialized", declarator,
-				CoreDslPackage.Literals.NAMED_ENTITY__NAME, -1, IssueCodes.UninitializedConstant);
+				CoreDslPackage.Literals.DECLARATOR__NAME, -1, IssueCodes.UninitializedConstant);
 		}
 
 		if(declarator.isAlias) {
@@ -211,7 +211,7 @@ class CoreDslAnalyzer {
 
 			if(declarator.initializer === null) {
 				ctx.acceptError("An identifier declared as alias must be initialized", declarator,
-					CoreDslPackage.Literals.NAMED_ENTITY__NAME, -1, IssueCodes.UninitializedAlias);
+					CoreDslPackage.Literals.DECLARATOR__NAME, -1, IssueCodes.UninitializedAlias);
 			}
 		}
 

@@ -21,16 +21,19 @@ fragment ISA:
 
 FunctionDefinition:
     extern?='extern'
-    returnType=TypeSpecifier name=ID
+    returnType=TypeSpecifier
+    declarator=Declarator<false, false, false, true>
     '(' (parameters+=ParameterDeclaration (',' parameters+=ParameterDeclaration)*)? ')'
     attributes+=Attribute* ';'
     |
-    returnType=TypeSpecifier name=ID
+    returnType=TypeSpecifier
+    declarator=Declarator<false, false, false, true>
     '(' (parameters+=ParameterDeclaration (',' parameters+=ParameterDeclaration)*)? ')'
     attributes+=Attribute* body=CompoundStatement;
 
 Instruction:
-	name=ID attributes+=Attribute* '{' 
+	name=ID attributes+=Attribute* '{'
+		('operands' ':' (operands+=ParameterDeclaration (',' operands+=ParameterDeclaration)*)? ';')?
 		('encoding' ':' encoding=Encoding ';')
 		('assembly' ':' assembly=STRING ';')?
 		('behavior' ':' behavior=Statement)
@@ -39,7 +42,7 @@ Instruction:
 Encoding: fields+=EncodingField ('::' fields+=EncodingField)*;
 EncodingField: BitValue | BitField;
 BitValue: value=INTEGER;
-BitField: name=ID LEFT_BR startIndex=IntegerConstant ':' endIndex=IntegerConstant RIGHT_BR;
+BitField: operand=DeclaratorReference LEFT_BR startIndex=Expression (':' endIndex=Expression)? RIGHT_BR;
 
 ////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Statements ////////////////////////////////
@@ -107,16 +110,14 @@ MultiDeclaration returns Declaration: Declaration<true, false>;
 
 Declaration<allowMultiple, allowInit>:
 	(storage+=StorageClassSpecifier | qualifiers+=TypeQualifier)*
-	type=TypeSpecifier (declarators+=Declarator<allowInit> (<allowMultiple> ',' declarators+=Declarator<allowInit>)*)?;
+	type=TypeSpecifier (declarators+=Declarator<allowInit, true, false, false> (<allowMultiple> ',' declarators+=Declarator<allowInit, true, false, false>)*)?;
 
-Declarator<allowInit>:
-	alias?='&'?
+Declarator<allowInit, isLocation, isEnum, isFunction>:
+	(<isLocation> alias?='&'?)
 	name=ID
-	(LEFT_BR dimensions+=Expression RIGHT_BR)*
-	attributes+=Attribute*
-	(<allowInit> t_equals='=' initializer=Initializer)?;
-
-NamedEntity: FunctionDefinition | Declarator<true> | BitField | EnumMemberDeclaration;
+	(<isLocation> (LEFT_BR dimensions+=Expression RIGHT_BR)*)
+	(<!isFunction> attributes+=Attribute*)
+	(<allowInit & !isFunction> t_equals='=' initializer=Initializer)?;
     
 Initializer: ExpressionInitializer | ListInitializer;
 ExpressionInitializer: value=Expression;
@@ -133,9 +134,7 @@ UserTypeDeclaration: StructTypeDeclaration | UnionTypeDeclaration | EnumTypeDecl
 
 StructTypeDeclaration: 'struct' name=ID CompositeTypeDeclaration;
 UnionTypeDeclaration: 'union' name=ID CompositeTypeDeclaration;
-EnumTypeDeclaration: 'enum' name=ID '{' members+=EnumMemberDeclaration (',' members+=EnumMemberDeclaration)* ','? '}';
-
-EnumMemberDeclaration: name=ID ('=' value=Expression)?;
+EnumTypeDeclaration: 'enum' name=ID '{' members+=Declarator<true, false, true, false> (',' members+=Declarator<true, false, true, false>)* ','? '}';
 
 fragment CompositeTypeDeclaration: '{' (members+=MultiDeclaration ';')* '}';
 
@@ -143,8 +142,9 @@ fragment CompositeTypeDeclaration: '{' (members+=MultiDeclaration ';')* '}';
 
 TypeSpecifier: VoidTypeSpecifier | PrimitiveTypeSpecifier | UserTypeSpecifier;
 
-PrimitiveTypeSpecifier: IntegerTypeSpecifier | FloatTypeSpecifier | BoolTypeSpecifier;
+PrimitiveTypeSpecifier: BitsTypeSpecifier | IntegerTypeSpecifier | FloatTypeSpecifier | BoolTypeSpecifier;
 
+BitsTypeSpecifier: 'bits' '<' size=PrimaryExpression '>';
 IntegerTypeSpecifier: shorthand=IntegerSizeShorthand | signedness=IntegerSignedness (shorthand=IntegerSizeShorthand | '<' size=PrimaryExpression '>');
 FloatTypeSpecifier: shorthand=FloatSizeShorthand;
 BoolTypeSpecifier: {BoolTypeSpecifier} 'bool';
@@ -196,7 +196,8 @@ MultiplicativeExpression returns Expression: CastExpression ({InfixExpression.le
 CastExpression returns Expression:
 	PrefixExpression
 	| {CastExpression} '(' targetType=TypeSpecifier ')' operand=CastExpression
-	| {CastExpression} '(' signedness=IntegerSignedness ')' operand=CastExpression;
+	| {CastExpression} '(' signedness=IntegerSignedness ')' operand=CastExpression
+	| {CastExpression} '(' isBitsCast?='bits' ')' operand=CastExpression;
 
 PrefixExpression returns Expression:
 	PostfixExpression
@@ -214,14 +215,14 @@ PostfixExpression returns Expression:
 	| {PostfixExpression.operand=current} operator='--'
 	)*;
 
-PrimaryExpression: ParenthesisExpression | EntityReference | IntrinsicExpression | Constant;
+PrimaryExpression: ParenthesisExpression | DeclaratorReference | IntrinsicExpression | Constant;
 
 ParenthesisExpression: '(' inner=Expression ')';
 
-EntityReference: target=[NamedEntity];
+DeclaratorReference: target=[Declarator];
 
 IntrinsicExpression:
-	function=('sizeof' | 'bitsizeof' | 'alignof' | 'bitalignof' | 'offsetof' | 'bitoffsetof')
+	function=IntrinsicFunction
 	'(' (arguments+=(Expression|TypeSpecifier) (',' arguments+=(Expression|TypeSpecifier))*)? ')';
     
 //////////////////////////////// Constants ////////////////////////////////
@@ -251,6 +252,13 @@ enum FloatSizeShorthand : FLOAT='float' | DOUBLE='double';
 enum TypeQualifier: CONST='const' | VOLATILE='volatile';
 enum StorageClassSpecifier: EXTERN='extern' | REGISTER='register';
 
+enum IntrinsicFunction:
+	sizeof | bitsizeof |
+	alignof | bitalignof |
+	offsetof | bitoffsetof |
+	sign_extend | zero_extend | truncate | truncate_u | truncate_s |
+	load_le | load_be | store_le | store_be;
+
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Terminal Rules ////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -264,7 +272,7 @@ terminal LEFT_BR: '[';
 
 terminal RIGHT_BR: ']';
 
-terminal BOOLEAN returns ecore::EBoolean: 'true' | 'false' ;
+terminal BOOLEAN returns ecore::EBoolean: 'true' | 'false' ; // TODO don't make this a terminal, because this way it doesn't get highlighted or autocompleted
 
 terminal FLOAT returns ecore::EBigDecimal:  (('0'..'9')+ '.' ('0'..'9')*) (('e' | 'E') ('+' | '-')? ('0'..'9')+)? ('f'|'F'|'l'|'L')?;
 

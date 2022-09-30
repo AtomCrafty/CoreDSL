@@ -28,6 +28,8 @@ public final class KnownAttributes {
         register("is_interlock_for", 1, declaration);
         register("clk_budget", 1, function);
         register("type", 1, instruction);
+        register("default_truncate_width", 0, declaration);
+        register("expected_encoding_width", 1, instruction);
     }
 
     public static void register(String name, int paramCount, AttributeUsage... allowedUsage) {

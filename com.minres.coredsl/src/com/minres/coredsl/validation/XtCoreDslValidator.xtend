@@ -3,27 +3,17 @@
  */
 package com.minres.coredsl.validation
 
-import com.minres.coredsl.coreDsl.CastExpression
-import com.minres.coredsl.coreDsl.CoreDslPackage
-import com.minres.coredsl.coreDsl.Expression
-import com.minres.coredsl.coreDsl.InfixExpression
-import com.minres.coredsl.coreDsl.PostfixExpression
-import com.minres.coredsl.coreDsl.PrefixExpression
-import com.minres.coredsl.coreDsl.PrimaryExpression
-
-import static extension com.minres.coredsl.typing.TypeProvider.*
-import org.eclipse.xtext.validation.Check
-import com.minres.coredsl.coreDsl.ISA
+import com.minres.coredsl.analysis.CoreDslAnalyzer
 import com.minres.coredsl.coreDsl.Attribute
-import com.minres.coredsl.coreDsl.Instruction
-import com.minres.coredsl.coreDsl.Declaration
+import com.minres.coredsl.coreDsl.CoreDslPackage
 import com.minres.coredsl.coreDsl.Declarator
+import com.minres.coredsl.coreDsl.DescriptionContent
 import com.minres.coredsl.coreDsl.FunctionDefinition
-import com.minres.coredsl.validation.KnownAttributes.AttributeUsage
+import com.minres.coredsl.coreDsl.ISA
+import com.minres.coredsl.coreDsl.Instruction
 import org.eclipse.emf.common.util.EList
 import org.eclipse.emf.ecore.EStructuralFeature
-import com.minres.coredsl.coreDsl.DescriptionContent
-import com.minres.coredsl.analysis.CoreDslAnalyzer
+import org.eclipse.xtext.validation.Check
 
 /**
  * This class contains custom validation rules. 
@@ -48,71 +38,6 @@ class XtCoreDslValidator extends CoreDslValidator {
 	@Check
 	def analyze(DescriptionContent desc) {
 		CoreDslAnalyzer.analyze(desc, this);
-	}
-
-	// @Check
-	def checkType(Expression e) {
-		switch (e) {
-			case PrimaryExpression,
-			case PostfixExpression,
-			case PrefixExpression:
-				if (e.typeFor === null)
-					error(
-						"incompatible types used",
-						// TODO this doesn't necessarily make sense as a location
-						null,
-						TYPE_MISMATCH
-					)
-			case CastExpression: {
-				if ((e as CastExpression).targetType.typeFor === null)
-					error(
-						"illegal type used",
-						CoreDslPackage.Literals.CAST_EXPRESSION__TARGET_TYPE,
-						TYPE_ILLEGAL
-					)
-			}
-			case InfixExpression: {
-				val infix = e as InfixExpression
-				switch (infix.operator) {
-					case '<',
-					case '>',
-					case '<=',
-					case '>=',
-					case '==',
-					case '!=':
-						if (!infix.left.typeFor.isComparable(infix.right.typeFor))
-							error(
-								"incompatible types used",
-								CoreDslPackage.Literals.INFIX_EXPRESSION__OPERATOR,
-								TYPE_MISMATCH
-							)
-					case '||',
-					case '&&',
-					case '<<',
-					case '>>',
-					case '+',
-					case '-',
-					case '*',
-					case '/',
-					case '%',
-					case '|',
-					case '^',
-					case '&':
-						if (!infix.left.typeFor.isComputable(infix.right.typeFor))
-							error(
-								"incompatible types used",
-								CoreDslPackage.Literals.INFIX_EXPRESSION__OPERATOR,
-								TYPE_MISMATCH
-							)
-					default: {
-					} // '::'
-				}
-			}
-//            case ConditionalExpression: {
-//            }
-//            case AssignmentExpression: {
-//            }
-		}
 	}
 	
 	def checkAttributes(EList<Attribute> attributes, KnownAttributes.AttributeUsage expectedUsage, EStructuralFeature feature) {

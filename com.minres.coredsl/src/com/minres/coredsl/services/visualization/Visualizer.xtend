@@ -1,18 +1,34 @@
 package com.minres.coredsl.services.visualization
 
+import com.minres.coredsl.coreDsl.ArrayAccessExpression
 import com.minres.coredsl.coreDsl.AssignmentExpression
 import com.minres.coredsl.coreDsl.Attribute
 import com.minres.coredsl.coreDsl.BitField
 import com.minres.coredsl.coreDsl.BitValue
 import com.minres.coredsl.coreDsl.BoolConstant
+import com.minres.coredsl.coreDsl.BoolTypeSpecifier
+import com.minres.coredsl.coreDsl.BreakStatement
+import com.minres.coredsl.coreDsl.CaseSection
+import com.minres.coredsl.coreDsl.CastExpression
+import com.minres.coredsl.coreDsl.CharacterConstant
 import com.minres.coredsl.coreDsl.CompoundStatement
+import com.minres.coredsl.coreDsl.ContinueStatement
 import com.minres.coredsl.coreDsl.CoreDef
 import com.minres.coredsl.coreDsl.Declaration
-import com.minres.coredsl.coreDsl.DescriptionContent
 import com.minres.coredsl.coreDsl.Declarator
+import com.minres.coredsl.coreDsl.DeclaratorReference
+import com.minres.coredsl.coreDsl.DefaultSection
+import com.minres.coredsl.coreDsl.DescriptionContent
+import com.minres.coredsl.coreDsl.DoLoop
 import com.minres.coredsl.coreDsl.Encoding
+import com.minres.coredsl.coreDsl.EnumTypeDeclaration
+import com.minres.coredsl.coreDsl.EnumTypeSpecifier
+import com.minres.coredsl.coreDsl.ExpressionInitializer
 import com.minres.coredsl.coreDsl.ExpressionStatement
 import com.minres.coredsl.coreDsl.FloatConstant
+import com.minres.coredsl.coreDsl.FloatTypeSpecifier
+import com.minres.coredsl.coreDsl.ForLoop
+import com.minres.coredsl.coreDsl.FunctionCallExpression
 import com.minres.coredsl.coreDsl.FunctionDefinition
 import com.minres.coredsl.coreDsl.IfStatement
 import com.minres.coredsl.coreDsl.Import
@@ -20,11 +36,24 @@ import com.minres.coredsl.coreDsl.InfixExpression
 import com.minres.coredsl.coreDsl.Instruction
 import com.minres.coredsl.coreDsl.InstructionSet
 import com.minres.coredsl.coreDsl.IntegerConstant
+import com.minres.coredsl.coreDsl.IntegerTypeSpecifier
+import com.minres.coredsl.coreDsl.IntrinsicExpression
+import com.minres.coredsl.coreDsl.ListInitializer
+import com.minres.coredsl.coreDsl.MemberAccessExpression
+import com.minres.coredsl.coreDsl.ParenthesisExpression
 import com.minres.coredsl.coreDsl.PostfixExpression
 import com.minres.coredsl.coreDsl.PrefixExpression
+import com.minres.coredsl.coreDsl.ReturnStatement
 import com.minres.coredsl.coreDsl.SpawnStatement
+import com.minres.coredsl.coreDsl.StringConstant
 import com.minres.coredsl.coreDsl.StringLiteral
+import com.minres.coredsl.coreDsl.StructTypeDeclaration
+import com.minres.coredsl.coreDsl.StructTypeSpecifier
 import com.minres.coredsl.coreDsl.SwitchStatement
+import com.minres.coredsl.coreDsl.UnionTypeDeclaration
+import com.minres.coredsl.coreDsl.UnionTypeSpecifier
+import com.minres.coredsl.coreDsl.VoidTypeSpecifier
+import com.minres.coredsl.coreDsl.WhileLoop
 import com.minres.coredsl.services.visualization.VisualElement.DeclarationLiteral
 import com.minres.coredsl.services.visualization.VisualElement.Literal
 import com.minres.coredsl.services.visualization.VisualElement.NodeElement
@@ -39,36 +68,6 @@ import java.util.List
 import java.util.Map
 import java.util.function.Supplier
 import org.eclipse.emf.ecore.EObject
-import com.minres.coredsl.coreDsl.FunctionCallExpression
-import com.minres.coredsl.coreDsl.ArrayAccessExpression
-import com.minres.coredsl.coreDsl.MemberAccessExpression
-import com.minres.coredsl.coreDsl.EnumTypeSpecifier
-import com.minres.coredsl.coreDsl.BoolTypeSpecifier
-import com.minres.coredsl.coreDsl.VoidTypeSpecifier
-import com.minres.coredsl.coreDsl.FloatTypeSpecifier
-import com.minres.coredsl.coreDsl.IntegerTypeSpecifier
-import com.minres.coredsl.coreDsl.CharacterConstant
-import com.minres.coredsl.coreDsl.StringConstant
-import com.minres.coredsl.coreDsl.ParenthesisExpression
-import com.minres.coredsl.coreDsl.ExpressionInitializer
-import com.minres.coredsl.coreDsl.ListInitializer
-import com.minres.coredsl.coreDsl.EntityReference
-import com.minres.coredsl.coreDsl.WhileLoop
-import com.minres.coredsl.coreDsl.ForLoop
-import com.minres.coredsl.coreDsl.DoLoop
-import com.minres.coredsl.coreDsl.CaseSection
-import com.minres.coredsl.coreDsl.DefaultSection
-import com.minres.coredsl.coreDsl.CastExpression
-import com.minres.coredsl.coreDsl.ContinueStatement
-import com.minres.coredsl.coreDsl.BreakStatement
-import com.minres.coredsl.coreDsl.ReturnStatement
-import com.minres.coredsl.coreDsl.IntrinsicExpression
-import com.minres.coredsl.coreDsl.StructTypeSpecifier
-import com.minres.coredsl.coreDsl.UnionTypeSpecifier
-import com.minres.coredsl.coreDsl.EnumTypeDeclaration
-import com.minres.coredsl.coreDsl.StructTypeDeclaration
-import com.minres.coredsl.coreDsl.UnionTypeDeclaration
-import com.minres.coredsl.coreDsl.EnumMemberDeclaration
 
 class Visualizer {
 	
@@ -255,7 +254,7 @@ class Visualizer {
 	
 	private def dispatch VisualNode genNode(BitField node) {
 		return makeNode(node, "Bit Field",
-			makeNamedLiteral("Name", node.name),
+			makeChild("Operand", node.operand),
 			makeChild("StartIndex", node.startIndex),
 			makeChild("EndIndex", node.endIndex)
 		);
@@ -270,7 +269,7 @@ class Visualizer {
 	private def dispatch VisualNode genNode(FunctionDefinition node) {
 		return makeNode(node, node.extern ? "Function (extern)" : "Function",
 			makeChild("Return Type", node.returnType),
-			makeNamedLiteral("Name", node.name),
+			makeChild("Declarator", node.declarator),
 			makeGroup("Parameters", node.parameters),
 			makeGroup("Attributes", node.attributes),
 			makeChild("Body", node.body)
@@ -440,13 +439,6 @@ class Visualizer {
 		);
 	}
 	
-	private def dispatch VisualNode genNode(EnumMemberDeclaration node) {
-		return makeNode(node, "Enum Member",
-			makeDeclaration("Name", node.name, node),
-			makeChild("Value", node.value)
-		);
-	}
-	
 	private def dispatch VisualNode genNode(Declarator node) {
 		return makeNode(node, node.isAlias ? "Declarator (alias)" : "Declarator",
 			makeDeclaration("Name", node.name, node),
@@ -558,19 +550,14 @@ class Visualizer {
 	
 	private def dispatch VisualNode genNode(IntrinsicExpression node) {
 		return makeNode(node, "Intrinsic Function Call",
-			makeNamedLiteral("Function", node.function),
+			makeNamedLiteral("Function", node.function.literal),
 			makeGroup("Arguments", node.arguments)
 		);
 	}
 	
-	private def dispatch VisualNode genNode(EntityReference node) {
-		if(node.target instanceof FunctionDefinition)
-			return makeNode(node, "Function Reference", makeReference("Function", (node.target as FunctionDefinition).name, [node.target]));
-			
-		if(node.target instanceof Declarator)
-			return makeNode(node, "Declarator Reference", makeReference("Declarator", (node.target as Declarator).name, [node.target]));
-			
-		if(node.target instanceof BitField)
-			return makeNode(node, "Field Reference", makeReference("Field", (node.target as BitField).name, [node.target]));
+	private def dispatch VisualNode genNode(DeclaratorReference node) {
+		return makeNode(node, "Declarator Reference",
+			makeReference("Declarator", (node.getTarget as Declarator).name, [node.getTarget])
+		);
 	}
 }

@@ -17,15 +17,39 @@ import com.minres.coredsl.type.FloatType
 import com.minres.coredsl.type.IntegerType
 import com.minres.coredsl.type.VoidType
 import com.minres.coredsl.validation.IssueCodes
+import com.minres.coredsl.coreDsl.BitsTypeSpecifier
+import com.minres.coredsl.type.BitsType
 
 abstract class CoreDslTypeProvider {
 	private new() {
 	}
 
-	def static dispatch CoreDslType getSpecifiedType(ElaborationContext ctx, IntegerTypeSpecifier specifier) {
-		val signed = specifier.signedness !== IntegerSignedness.UNSIGNED;
-		if(specifier.size === null) {
-			switch (specifier.shorthand) {
+	def static dispatch CoreDslType getSpecifiedType(ElaborationContext ctx, BitsTypeSpecifier spec) {
+		val size = ctx.calculatedValues.get(spec.size);
+		if(size === null) return ErrorType.indeterminate;
+		if(size === ConstantValue.invalid) return ErrorType.invalid;
+
+		try {
+			val exactSize = size.value.intValueExact();
+
+			if(exactSize < 0) {
+				ctx.acceptError('Bit vector size must not be negative', spec,
+					CoreDslPackage.Literals.INTEGER_TYPE_SPECIFIER__SIZE, -1, IssueCodes.InvalidIntegerTypeSize);
+				return ErrorType.invalid;
+			}
+
+			return new BitsType(exactSize);
+		} catch(ArithmeticException e) {
+			ctx.acceptError('Bit vector size must not exceed Integer.MAX_VALUE', spec,
+				CoreDslPackage.Literals.INTEGER_TYPE_SPECIFIER__SIZE, -1, IssueCodes.InvalidIntegerTypeSize);
+			return ErrorType.invalid;
+		}
+	}
+
+	def static dispatch CoreDslType getSpecifiedType(ElaborationContext ctx, IntegerTypeSpecifier spec) {
+		val signed = spec.signedness !== IntegerSignedness.UNSIGNED;
+		if(spec.size === null) {
+			switch (spec.shorthand) {
 				case CHAR:
 					return new IntegerType(8, signed)
 				case SHORT:
@@ -37,7 +61,7 @@ abstract class CoreDslTypeProvider {
 			}
 		}
 
-		val size = ctx.calculatedValues.get(specifier.size);
+		val size = ctx.calculatedValues.get(spec.size);
 		if(size === null) return ErrorType.indeterminate;
 		if(size === ConstantValue.invalid) return ErrorType.invalid;
 
@@ -45,20 +69,20 @@ abstract class CoreDslTypeProvider {
 			val exactSize = size.value.intValueExact();
 
 			if(exactSize < 0) {
-				ctx.acceptError('Integer type size must not be negative', specifier,
+				ctx.acceptError('Integer type size must not be negative', spec,
 					CoreDslPackage.Literals.INTEGER_TYPE_SPECIFIER__SIZE, -1, IssueCodes.InvalidIntegerTypeSize);
 				return ErrorType.invalid;
 			}
 
 			if(exactSize == 0 && signed) {
-				ctx.acceptError('signed<0> is not a valid type', specifier,
+				ctx.acceptError('signed<0> is not a valid type', spec,
 					CoreDslPackage.Literals.INTEGER_TYPE_SPECIFIER__SIZE, -1, IssueCodes.InvalidIntegerTypeSize);
 				return ErrorType.invalid;
 			}
 
 			return new IntegerType(exactSize, signed);
 		} catch(ArithmeticException e) {
-			ctx.acceptError('Integer type size must not exceed Integer.MAX_VALUE', specifier,
+			ctx.acceptError('Integer type size must not exceed Integer.MAX_VALUE', spec,
 				CoreDslPackage.Literals.INTEGER_TYPE_SPECIFIER__SIZE, -1, IssueCodes.InvalidIntegerTypeSize);
 			return ErrorType.invalid;
 		}

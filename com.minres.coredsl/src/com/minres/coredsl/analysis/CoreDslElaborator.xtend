@@ -5,7 +5,6 @@ import com.minres.coredsl.coreDsl.CoreDef
 import com.minres.coredsl.coreDsl.CoreDslPackage
 import com.minres.coredsl.coreDsl.DeclarationStatement
 import com.minres.coredsl.coreDsl.Declarator
-import com.minres.coredsl.coreDsl.EntityReference
 import com.minres.coredsl.coreDsl.ExpressionInitializer
 import com.minres.coredsl.coreDsl.ExpressionStatement
 import com.minres.coredsl.coreDsl.ISA
@@ -16,6 +15,8 @@ import java.util.ArrayList
 import java.util.HashSet
 
 import static extension com.minres.coredsl.util.ModelExtensions.*
+import com.minres.coredsl.coreDsl.BitsTypeSpecifier
+import com.minres.coredsl.coreDsl.DeclaratorReference
 
 class CoreDslElaborator {
 
@@ -98,8 +99,15 @@ class CoreDslElaborator {
 			switch (stmt) {
 				DeclarationStatement: {
 					val type = stmt.declaration.type;
-					if(type instanceof IntegerTypeSpecifier && (type as IntegerTypeSpecifier).size !== null) {
-						ctx.calculationQueue.add((type as IntegerTypeSpecifier).size);
+					switch(type) {
+						BitsTypeSpecifier: {
+							ctx.calculationQueue.add(type.size);
+						}
+						IntegerTypeSpecifier: {
+							if(type.size !== null) {
+								ctx.calculationQueue.add(type.size);
+							}
+						}
 					}
 
 					for (decl : stmt.declaration.declarators) {
@@ -119,8 +127,8 @@ class CoreDslElaborator {
 				}
 				ExpressionStatement: {
 					val assignment = stmt.expression.castOrNull(AssignmentExpression);
-					val reference = assignment?.target.castOrNull(EntityReference);
-					val declarator = reference?.target.castOrNull(Declarator);
+					val reference = assignment?.target.castOrNull(DeclaratorReference);
+					val declarator = reference?.getTarget.castOrNull(Declarator);
 
 					// No errors need to be emitted if this checks fails, because
 					// those are handled by the analyzer.

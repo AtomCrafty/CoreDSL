@@ -1,6 +1,5 @@
 package com.minres.coredsl.scoping
 
-import com.minres.coredsl.coreDsl.BitField
 import com.minres.coredsl.coreDsl.CastExpression
 import com.minres.coredsl.coreDsl.CompoundStatement
 import com.minres.coredsl.coreDsl.CoreDef
@@ -8,8 +7,8 @@ import com.minres.coredsl.coreDsl.CoreDslPackage
 import com.minres.coredsl.coreDsl.Declaration
 import com.minres.coredsl.coreDsl.DeclarationStatement
 import com.minres.coredsl.coreDsl.Declarator
+import com.minres.coredsl.coreDsl.DeclaratorReference
 import com.minres.coredsl.coreDsl.DescriptionContent
-import com.minres.coredsl.coreDsl.EntityReference
 import com.minres.coredsl.coreDsl.EnumTypeDeclaration
 import com.minres.coredsl.coreDsl.Expression
 import com.minres.coredsl.coreDsl.ForLoop
@@ -20,7 +19,6 @@ import com.minres.coredsl.coreDsl.Instruction
 import com.minres.coredsl.coreDsl.InstructionSet
 import com.minres.coredsl.coreDsl.IntrinsicExpression
 import com.minres.coredsl.coreDsl.MemberAccessExpression
-import com.minres.coredsl.coreDsl.NamedEntity
 import com.minres.coredsl.coreDsl.ParenthesisExpression
 import com.minres.coredsl.coreDsl.StructTypeDeclaration
 import com.minres.coredsl.coreDsl.StructTypeSpecifier
@@ -47,7 +45,7 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 //   EntityReference.target
 	override IScope getScope(EObject context, EReference reference) {
 
-		//println('''Trying to resolve «reference.EType.name» «(reference.eContainer as EClass).name».«reference.name» on «context.eClass.name»''');
+		//println('''Trying to resolve «reference.EType.name» «(reference.eContainer as org.eclipse.emf.ecore.EClass).name».«reference.name» on «context.eClass.name»''');
 
 		switch (reference) {
 			case CoreDslPackage.Literals.CORE_DEF__PROVIDED_INSTRUCTION_SETS,
@@ -66,8 +64,8 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 			case CoreDslPackage.Literals.MEMBER_ACCESS_EXPRESSION__DECLARATOR: {
 				return getMemberScope(context);
 			}
-			case CoreDslPackage.Literals.ENTITY_REFERENCE__TARGET: {
-				return getNamedEntityScope(context, null);
+			case CoreDslPackage.Literals.DECLARATOR_REFERENCE__TARGET: {
+				return getDeclaratorScope(context, null);
 			}
 		}
 
@@ -98,15 +96,15 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 
 	/**
 	 * Finds the type specifier determining the type of the expression, if such a specifier exists.
-	 * Applicable to entity references targeting a declarator, member accesses, function calls and type casts.
+	 * Applicable to declarator references, member accesses, function calls and type casts.
 	 * */
 	def private static TypeSpecifier findTypeSpecifier(Expression expression) {
 		switch (expression) {
 			ParenthesisExpression: {
 				return findTypeSpecifier(expression.inner);
 			}
-			EntityReference: {
-				val declarator = expression.target.castOrNull(Declarator);
+			DeclaratorReference: {
+				val declarator = expression.getTarget.castOrNull(Declarator);
 				return declarator?.type;
 			}
 			MemberAccessExpression: {
@@ -161,37 +159,37 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 		return getTypeMemberScope(typeSpecifier);
 	}
 
-	def private static IScope getParentNamedEntityScope(EObject context) {
-		return getNamedEntityScope(context.eContainer, context);
+	def private static IScope getParentDeclaratorScope(EObject context) {
+		return getDeclaratorScope(context.eContainer, context);
 	}
 
-	def private static dispatch IScope getNamedEntityScope(ForLoop context, EObject child) {
+	def private static dispatch IScope getDeclaratorScope(ForLoop context, EObject child) {
 		if(child !== null && child.eContainingFeature === CoreDslPackage.Literals.FOR_LOOP__START_DECLARATION) {
-			return getParentNamedEntityScope(context);
+			return getParentDeclaratorScope(context);
 		}
 
 		if(context.startDeclaration !== null) {
-			return Scopes.scopeFor(context.startDeclaration.declarators, getParentNamedEntityScope(context));
+			return Scopes.scopeFor(context.startDeclaration.declarators, getParentDeclaratorScope(context));
 		} else {
-			return Scopes.scopeFor(#[], getParentNamedEntityScope(context));
+			return Scopes.scopeFor(#[], getParentDeclaratorScope(context));
 		}
 	}
 
-	def private static dispatch IScope getNamedEntityScope(Declaration context, EObject child) {
-		return Scopes.scopeFor(context.declarators.takeWhile[it !== child], getParentNamedEntityScope(context));
+	def private static dispatch IScope getDeclaratorScope(Declaration context, EObject child) {
+		return Scopes.scopeFor(context.declarators.takeWhile[it !== child], getParentDeclaratorScope(context));
 	}
 
-	def private static Iterable<NamedEntity> getDeclarationsTransitive(InstructionSet iset) {
+	def private static Iterable<Declarator> getDeclarationsTransitive(InstructionSet iset) {
 		return getDeclarationsTransitive(iset, new HashSet());
 	}
 
-	def private static Iterable<NamedEntity> getDeclarationsTransitive(InstructionSet isa,
+	def private static Iterable<Declarator> getDeclarationsTransitive(InstructionSet isa,
 		HashSet<InstructionSet> seen) {
 		if(!seen.add(isa)) return #[]; // recursion error
 		
 		val declarations = isa.archStateBody.filter(DeclarationStatement).flatMap[it.declaration.declarators];
 		val enumMembers = isa.types.filter(EnumTypeDeclaration).flatMap[it.members];
-		val functions = isa.functions;
+		val functions = isa.functions.map[it.declarator];
 		
 		val entities = declarations + enumMembers + functions;
 		return isa.superType !== null ? entities + getDeclarationsTransitive(isa.superType) : entities;
@@ -208,7 +206,7 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 		Scopes.scopeFor(getDeclarationsTransitive(iset.superType))
 	}
 
-	def private static dispatch IScope getNamedEntityScope(ISA context, EObject child) {
+	def private static dispatch IScope getDeclaratorScope(ISA context, EObject child) {
 		val declarations = context.archStateBody //
 		.takeWhile[it !== child] //
 		.filter(DeclarationStatement) //
@@ -217,27 +215,27 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 		return Scopes.scopeFor(declarations + enumMembers + context.functions, getInheritedScope(context));
 	}
 
-	def private static dispatch IScope getNamedEntityScope(CompoundStatement context, EObject child) {
+	def private static dispatch IScope getDeclaratorScope(CompoundStatement context, EObject child) {
 		val newDeclarations = context.statements //
 		.takeWhile[it !== child] //
 		.filter(DeclarationStatement) //
 		.flatMap[it.declaration.declarators];
-		return Scopes.scopeFor(newDeclarations, getParentNamedEntityScope(context));
+		return Scopes.scopeFor(newDeclarations, getParentDeclaratorScope(context));
 	}
 
-	def private static dispatch IScope getNamedEntityScope(FunctionDefinition context, EObject child) {
-		return Scopes.scopeFor(context.parameters.flatMap[it.declarators], getParentNamedEntityScope(context));
+	def private static dispatch IScope getDeclaratorScope(FunctionDefinition context, EObject child) {
+		return Scopes.scopeFor(context.parameters.flatMap[it.declarators], getParentDeclaratorScope(context));
 	}
 
-	def private static dispatch IScope getNamedEntityScope(Instruction context, EObject child) {
-		return Scopes.scopeFor(context.encoding.fields.filter(BitField), getParentNamedEntityScope(context));
+	def private static dispatch IScope getDeclaratorScope(Instruction context, EObject child) {
+		return Scopes.scopeFor(context.operands.flatMap[it.declarators], getParentDeclaratorScope(context));
 	}
 
-	def private static dispatch IScope getNamedEntityScope(IntrinsicExpression context, EObject child) {
+	def private static dispatch IScope getDeclaratorScope(IntrinsicExpression context, EObject child) {
 		if((context.function == 'offsetof' || context.function == 'bitoffsetof') && context.arguments.size == 2 && child === context.arguments.get(1)) {
 			val arg1 = context.arguments.get(0);
 			val arg2 = context.arguments.get(1);
-			if(arg2 instanceof EntityReference) {
+			if(arg2 instanceof DeclaratorReference) {
 				switch (arg1) {
 					Expression: {
 						val typeSpecifier = findTypeSpecifier(arg1);
@@ -252,10 +250,10 @@ class CoreDslScopeProvider extends AbstractCoreDslScopeProvider {
 			}
 			return IScope.NULLSCOPE;
 		}
-		return getParentNamedEntityScope(context);
+		return getParentDeclaratorScope(context);
 	}
 
-	def private static dispatch IScope getNamedEntityScope(EObject context, EObject child) {
-		return getParentNamedEntityScope(context);
+	def private static dispatch IScope getDeclaratorScope(EObject context, EObject child) {
+		return getParentDeclaratorScope(context);
 	}
 }

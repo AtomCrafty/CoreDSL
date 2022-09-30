@@ -10,7 +10,7 @@ import com.minres.coredsl.coreDsl.DescriptionContent
 import com.minres.coredsl.coreDsl.Encoding
 import com.minres.coredsl.coreDsl.Instruction
 import com.minres.coredsl.coreDsl.InstructionSet
-import com.minres.coredsl.coreDsl.NamedEntity
+import com.minres.coredsl.coreDsl.Declarator
 import com.minres.coredsl.coreDsl.Statement
 import org.eclipse.xtext.ui.editor.outline.IOutlineNode
 import org.eclipse.xtext.ui.editor.outline.impl.DocumentRootNode
@@ -59,7 +59,7 @@ class XtCoreDslOutlineTreeProvider extends CoreDslOutlineTreeProvider {
 		createNode(parentNode, instr.behavior)
 	}
 
-	def boolean _isLeaf(NamedEntity variable) {
+	def boolean _isLeaf(Declarator variable) {
 		return true;
 	}
 
